@@ -71,6 +71,7 @@
     "eslint": "^8.57.0",
     "eslint-config-next": "^15.2.3",
     "genkit-cli": "^1.8.0",
+    "null-loader": "^4.0.1",
     "postcss": "^8.4.38",
     "tailwindcss-animate": "^1.0.7",
     "ts-node": "^10.9.2"

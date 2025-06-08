@@ -14,6 +14,13 @@ const nextConfig = {
         'pg-connection-string': false,
       };
     }
+
+    // 添加对 cloudflare:sockets 的处理
+    config.module.rules.push({
+      test: /node_modules\/pg-cloudflare/,
+      use: 'null-loader',
+    });
+
     return config;
   },
   serverExternalPackages: ['pg', 'pg-native', 'pg-cloudflare'],

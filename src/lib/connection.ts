@@ -18,6 +18,11 @@ export class DatabaseConnection {
       max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 2000,
+      // 禁用 native 和 cloudflare 支持
+      native: false,
+      // 使用简单的 TCP 连接
+      keepAlive: true,
+      keepAliveInitialDelayMillis: 10000,
     };
 
     this.pool = new Pool(config);
@@ -80,6 +85,9 @@ export class DatabaseConnection {
         max: 20,
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 2000,
+        native: false,
+        keepAlive: true,
+        keepAliveInitialDelayMillis: 10000,
       });
 
       // 重新初始化监控
