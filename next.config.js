@@ -16,9 +16,7 @@ const nextConfig = {
     }
     return config;
   },
-  experimental: {
-    serverComponentsExternalPackages: ['pg', 'pg-native', 'pg-cloudflare'],
-  },
+  serverExternalPackages: ['pg', 'pg-native', 'pg-cloudflare'],
 };
 
 module.exports = nextConfig; 
