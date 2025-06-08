@@ -1,0 +1,132 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 96.1%; /* Light Neutral Gray #F5F5F5 */
+    --foreground: 240 10% 3.9%; /* Default Dark */
+
+    --card: 0 0% 100%; /* White cards */
+    --card-foreground: 240 10% 3.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+
+    /* Updated primary to a green tone, adjust as needed */
+    --primary: 140 50% 55%; 
+    --primary-foreground: 20 14.3% 10%; /* Dark text for green bg */
+
+    --secondary: 240 4.8% 90%; /* Slightly darker than background for secondary elements */
+    --secondary-foreground: 240 5.9% 10%;
+
+    --muted: 240 4.8% 92%; /* Muted elements */
+    --muted-foreground: 240 3.8% 46.1%;
+
+    --accent: 36 100% 56%; /* Warm Orange #FFA726 */
+    --accent-foreground: 20 14.3% 10%; /* Dark text for orange bg */
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 89.8%; /* Border for cards, inputs */
+    --input: 0 0% 89.8%;
+    --ring: 140 50% 55%; /* Green for focus rings */
+
+    --radius: 0.5rem;
+
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 240 6% 10%; /* Dark Gray */
+    --foreground: 0 0% 98%; /* Light Text */
+
+    --card: 240 5% 15%; /* Dark Card */
+    --card-foreground: 0 0% 98%;
+
+    --popover: 240 5% 15%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 140 50% 55%; 
+    --primary-foreground: 20 14.3% 90%; /* Lighter text for green on dark bg */
+
+    --secondary: 240 3.7% 20%; /* Darker secondary */
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 240 3.7% 20%;
+    --muted-foreground: 240 5% 64.9%;
+
+    --accent: 36 100% 56%; /* Warm Orange (same as light) */
+    --accent-foreground: 36 90% 15%; /* Darker text for orange on dark bg */
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 3.7% 25%; /* Darker border */
+    --input: 240 3.7% 25%;
+    --ring: 140 50% 55%; /* Green for focus rings */
+    
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    /* font-family directly using var(--font-geist-sans) is removed
+       as Tailwind's font-sans utility will now handle it */
+  }
+}
+
+@layer utilities {
+  .animated-text-gradient-en {
+    background-image: linear-gradient(to right, theme('colors.green.400'), theme('colors.blue.500'), theme('colors.purple.600'), theme('colors.green.400'));
+    background-size: 250% auto; /* Increased size for smoother animation */
+    animation: text-gradient-flow 8s linear infinite; /* Slower animation */
+  }
+  .animated-text-gradient-zh {
+    background-image: linear-gradient(to right, theme('colors.yellow.400'), theme('colors.orange.500'), theme('colors.red.600'), theme('colors.yellow.400'));
+    background-size: 250% auto; /* Increased size for smoother animation */
+    animation: text-gradient-flow 8s linear infinite; /* Slower animation */
+  }
+}
+
+@keyframes text-gradient-flow {
+  0% {
+    background-position: 0% center;
+  }
+  100% {
+    background-position: -200% center; /* Adjusted to ensure full cycle */
+  }
+}
