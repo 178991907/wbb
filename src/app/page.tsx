@@ -1,12 +1,12 @@
-'use client'; 
+'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
 import { LogoDisplay } from '@/components/dashboard/LogoDisplay';
 import { HeaderNav } from '@/components/dashboard/HeaderNav';
 import { ToolCard, type Tool } from '@/components/dashboard/ToolCard';
-import { getStorage } from '@/lib/storage';
+import { getStorage } from '@/lib/client-storage';
 import type { Category } from '@/app/admin/categories/page';
 import type { LinkItem } from '@/app/admin/links/new/page';
 
@@ -18,79 +18,89 @@ const siteSettings = {
   footerText: '© 2025 All-Subject English Enlightenment. All rights reserved. 由 Terry 开发和维护',
 };
 
-const STORAGE_CATEGORIES_KEY = 'linkHubCategories';
-const STORAGE_LINKS_KEY = 'linkHubLinks';
+// 存储键常量
+const STORAGE_KEYS = {
+  CATEGORIES: 'categories',
+  LINKS: 'links',
+} as const;
 
-// 初始数据，仅在数据库为空时使用
-const initialMockCategories: Category[] = [
-  { id: '1', name: '常用工具', slug: 'common-tools', createdDate: 'May 16, 2024', icon: 'tool' },
-  { id: '2', name: '儿童游戏', slug: 'kids-games', createdDate: 'May 16, 2024', icon: 'gamepad-2' },
+// 初始数据
+const initialCategories = [
+  { id: '1', name: '工作', color: '#FF5733' },
+  { id: '2', name: '学习', color: '#33FF57' },
+  { id: '3', name: '生活', color: '#3357FF' },
 ];
 
-const initialMockLinks: LinkItem[] = [
-  { id: 'L1', title: '搜索 (Baidu)', url: 'https://www.baidu.com', categoryId: '1', categoryName: '常用工具', createdDate: 'May 16, 2024', imageUrl: 'https://placehold.co/120x80.png', aiHint: 'search baidu', description: 'Leading Chinese Search Engine', faviconUrl: '' },
-  { id: 'L3', title: 'guge (Google)', url: 'https://www.google.com', categoryId: '1', categoryName: '常用工具', createdDate: 'May 16, 2024', imageUrl: 'https://placehold.co/120x80.png', aiHint: 'search google', description: 'Global Search Engine', faviconUrl: '' },
-  { id: 'g1', title: '字母游戏', url: '#game-alphabet', categoryId: '2', categoryName: '儿童游戏', createdDate: 'May 17, 2024', imageUrl: 'https://placehold.co/100x100.png', aiHint: 'alphabet game', description: '学习英文字母', faviconUrl: '' },
+const initialLinks = [
+  { id: '1', title: 'Google', url: 'https://www.google.com', categoryId: '1' },
+  { id: '2', title: 'GitHub', url: 'https://github.com', categoryId: '2' },
+  { id: '3', title: 'Stack Overflow', url: 'https://stackoverflow.com', categoryId: '2' },
 ];
 
 export default function DashboardPage() {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [links, setLinks] = useState<LinkItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [categories, setCategories] = useState(initialCategories);
+  const [links, setLinks] = useState(initialLinks);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
       try {
+        setLoading(true);
         const storage = getStorage();
-        
-        // 加载分类数据
-        const storedCategories = await storage.getData(STORAGE_CATEGORIES_KEY);
-        if (storedCategories) {
-          setCategories(storedCategories);
-        } else {
-          // 如果数据库为空，初始化默认数据
-          await storage.saveData(STORAGE_CATEGORIES_KEY, initialMockCategories);
-          setCategories(initialMockCategories);
+
+        // 加载分类
+        const savedCategories = await storage.getData(STORAGE_KEYS.CATEGORIES);
+        if (savedCategories) {
+          setCategories(savedCategories);
         }
 
-        // 加载链接数据
-        const storedLinks = await storage.getData(STORAGE_LINKS_KEY);
-        if (storedLinks) {
-          setLinks(storedLinks);
-        } else {
-          // 如果数据库为空，初始化默认数据
-          await storage.saveData(STORAGE_LINKS_KEY, initialMockLinks);
-          setLinks(initialMockLinks);
+        // 加载链接
+        const savedLinks = await storage.getData(STORAGE_KEYS.LINKS);
+        if (savedLinks) {
+          setLinks(savedLinks);
         }
-      } catch (e) {
-        console.error("加载数据失败:", e);
-        setError("加载数据失败，请刷新页面重试");
+      } catch (err) {
+        console.error('Error loading data:', err);
+        setError('Failed to load data');
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
 
     loadData();
   }, []);
 
-  const filteredLinks = links.filter(link =>
-    link.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    link.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    link.categoryName?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // 过滤链接
+  const filteredLinks = links.filter(link => {
+    const matchesSearch = link.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         link.url.toLowerCase().includes(searchTerm.toLowerCase());
+    const category = categories.find(cat => cat.id === link.categoryId);
+    return matchesSearch && category;
+  });
 
-  if (isLoading) {
-    return <div className="flex min-h-screen items-center justify-center bg-background">
-      <p>正在加载数据...</p>
-    </div>;
+  // 按分类分组
+  const groupedLinks = filteredLinks.reduce((groups, link) => {
+    const category = categories.find(cat => cat.id === link.categoryId);
+    if (category) {
+      if (!groups[category.id]) {
+        groups[category.id] = {
+          category,
+          links: [],
+        };
+      }
+      groups[category.id].links.push(link);
+    }
+    return groups;
+  }, {} as Record<string, { category: typeof categories[0]; links: typeof links }>);
+
+  if (loading) {
+    return <div className="flex justify-center items-center min-h-screen">Loading...</div>;
   }
 
   if (error) {
-    return <div className="flex min-h-screen items-center justify-center bg-background">
-      <p className="text-red-500">{error}</p>
-    </div>;
+    return <div className="flex justify-center items-center min-h-screen text-red-500">{error}</div>;
   }
 
   return (
@@ -122,41 +132,33 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {categories.map(category => {
-          const itemsForCategory = filteredLinks.filter(item => item.categoryId === category.id);
-          if (itemsForCategory.length === 0 && searchTerm) return null;
-
-          return (
-            <section key={category.id} className="mb-16">
-              <h2 className="text-3xl font-semibold text-primary mb-8">{category.name}</h2>
-              {itemsForCategory.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                  {itemsForCategory.map((item) => {
-                    const toolItem: Tool = {
-                      id: item.id,
-                      title: item.title,
-                      description: item.description,
-                      link: item.url,
-                      imageUrl: item.imageUrl || '',
-                      aiHint: item.aiHint || 'icon',
-                    };
-                    return <ToolCard key={item.id} tool={toolItem} />;
-                  })}
-                </div>
-              ) : (
-                <p className="text-muted-foreground">
-                  {searchTerm ? `在"${category.name}"中没有找到匹配的项目。` : `该分类下暂无项目。`}
-                </p>
-              )}
-            </section>
-          );
-        })}
-        {categories.length === 0 && (
-          <p className="text-muted-foreground text-xl">暂无分类数据。</p>
-        )}
-        {categories.length > 0 && filteredLinks.length === 0 && searchTerm && (
-          <p className="text-muted-foreground text-xl mt-8">没有找到匹配"{searchTerm}"的链接。</p>
-        )}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {Object.values(groupedLinks).map(({ category, links }) => (
+            <div
+              key={category.id}
+              className="border rounded-lg p-4"
+              style={{ borderColor: category.color }}
+            >
+              <h2 className="text-xl font-bold mb-4" style={{ color: category.color }}>
+                {category.name}
+              </h2>
+              <ul className="space-y-2">
+                {links.map(link => (
+                  <li key={link.id}>
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-500 hover:underline"
+                    >
+                      {link.title}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
       </main>
 
       <footer className="py-6 text-center text-sm text-muted-foreground border-t">
