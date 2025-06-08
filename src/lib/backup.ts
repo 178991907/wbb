@@ -1,128 +1,110 @@
 import { Pool } from 'pg';
-import fs from 'fs';
+import { getConnectionPool } from './connection';
+import fs from 'fs/promises';
 import path from 'path';
-import { promisify } from 'util';
-import { exec } from 'child_process';
 
-const execAsync = promisify(exec);
+interface TableRow {
+  [key: string]: any;
+}
 
 export class DatabaseBackup {
   private pool: Pool;
   private backupDir: string;
 
-  constructor(pool: Pool, backupDir: string = 'backups') {
-    this.pool = pool;
-    this.backupDir = backupDir;
-    this.ensureBackupDir();
-  }
-
-  private ensureBackupDir(): void {
-    if (!fs.existsSync(this.backupDir)) {
-      fs.mkdirSync(this.backupDir, { recursive: true });
-    }
+  constructor() {
+    this.pool = getConnectionPool();
+    this.backupDir = path.join(process.cwd(), 'backups');
   }
 
   async createBackup(): Promise<string> {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const backupPath = path.join(this.backupDir, `backup-${timestamp}.sql`);
-
     try {
-      // 获取数据库连接信息
-      const dbUrl = process.env.NEXT_PUBLIC_DATABASE_URL;
-      if (!dbUrl) {
-        throw new Error('Database URL not found in environment variables');
+      // 确保备份目录存在
+      await fs.mkdir(this.backupDir, { recursive: true });
+
+      // 获取所有表的数据
+      const tables = ['storage', 'categories', 'links'];
+      const backupData: Record<string, TableRow[]> = {};
+
+      for (const table of tables) {
+        const result = await this.pool.query(`SELECT * FROM ${table}`);
+        backupData[table] = result.rows;
       }
 
-      // 从连接字符串中提取数据库信息
-      const dbInfo = this.parseDatabaseUrl(dbUrl);
-      
-      // 使用 pg_dump 创建备份
-      const dumpCommand = `PGPASSWORD=${dbInfo.password} pg_dump -h ${dbInfo.host} -p ${dbInfo.port} -U ${dbInfo.user} -d ${dbInfo.database} -F c -f ${backupPath}`;
-      
-      await execAsync(dumpCommand);
-      console.log(`Backup created successfully at ${backupPath}`);
-      
-      return backupPath;
+      // 生成备份文件名
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const backupFile = path.join(this.backupDir, `backup-${timestamp}.json`);
+
+      // 保存备份数据
+      await fs.writeFile(backupFile, JSON.stringify(backupData, null, 2));
+
+      return backupFile;
     } catch (error) {
-      console.error('Error creating backup:', error);
+      console.error('Backup failed:', error);
       throw error;
     }
   }
 
-  async restoreBackup(backupPath: string): Promise<void> {
+  async restoreBackup(backupFile: string): Promise<void> {
     try {
-      const dbUrl = process.env.NEXT_PUBLIC_DATABASE_URL;
-      if (!dbUrl) {
-        throw new Error('Database URL not found in environment variables');
-      }
+      // 读取备份文件
+      const backupData = JSON.parse(await fs.readFile(backupFile, 'utf-8')) as Record<string, TableRow[]>;
 
-      const dbInfo = this.parseDatabaseUrl(dbUrl);
-      
-      // 使用 pg_restore 恢复备份
-      const restoreCommand = `PGPASSWORD=${dbInfo.password} pg_restore -h ${dbInfo.host} -p ${dbInfo.port} -U ${dbInfo.user} -d ${dbInfo.database} -c ${backupPath}`;
-      
-      await execAsync(restoreCommand);
-      console.log(`Backup restored successfully from ${backupPath}`);
+      // 开始事务
+      const client = await this.pool.connect();
+      try {
+        await client.query('BEGIN');
+
+        // 恢复每个表的数据
+        for (const [table, rows] of Object.entries(backupData)) {
+          // 清空表
+          await client.query(`TRUNCATE TABLE ${table} CASCADE`);
+
+          // 插入数据
+          if (rows.length > 0) {
+            const columns = Object.keys(rows[0]);
+            const values = rows.map(row => columns.map(col => row[col]));
+            const placeholders = values.map((_, i) => 
+              `(${columns.map((_, j) => `$${i * columns.length + j + 1}`).join(', ')})`
+            ).join(', ');
+
+            await client.query(
+              `INSERT INTO ${table} (${columns.join(', ')}) VALUES ${placeholders}`,
+              values.flat()
+            );
+          }
+        }
+
+        await client.query('COMMIT');
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
+      }
     } catch (error) {
-      console.error('Error restoring backup:', error);
+      console.error('Restore failed:', error);
       throw error;
     }
   }
 
   async listBackups(): Promise<string[]> {
     try {
-      const files = await fs.promises.readdir(this.backupDir);
+      const files = await fs.readdir(this.backupDir);
       return files
-        .filter(file => file.startsWith('backup-') && file.endsWith('.sql'))
-        .map(file => path.join(this.backupDir, file))
-        .sort()
-        .reverse();
+        .filter(file => file.startsWith('backup-') && file.endsWith('.json'))
+        .map(file => path.join(this.backupDir, file));
     } catch (error) {
-      console.error('Error listing backups:', error);
+      console.error('Failed to list backups:', error);
       throw error;
     }
   }
 
-  async deleteOldBackups(maxAgeDays: number = 30): Promise<void> {
+  async deleteBackup(backupFile: string): Promise<void> {
     try {
-      const files = await this.listBackups();
-      const now = new Date();
-      
-      for (const file of files) {
-        const stats = await fs.promises.stat(file);
-        const fileAge = (now.getTime() - stats.mtime.getTime()) / (1000 * 60 * 60 * 24);
-        
-        if (fileAge > maxAgeDays) {
-          await fs.promises.unlink(file);
-          console.log(`Deleted old backup: ${file}`);
-        }
-      }
+      await fs.unlink(backupFile);
     } catch (error) {
-      console.error('Error deleting old backups:', error);
+      console.error('Failed to delete backup:', error);
       throw error;
     }
-  }
-
-  private parseDatabaseUrl(url: string): {
-    host: string;
-    port: string;
-    database: string;
-    user: string;
-    password: string;
-  } {
-    const regex = /postgres:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)/;
-    const match = url.match(regex);
-    
-    if (!match) {
-      throw new Error('Invalid database URL format');
-    }
-
-    return {
-      user: match[1],
-      password: match[2],
-      host: match[3],
-      port: match[4],
-      database: match[5],
-    };
   }
 } 

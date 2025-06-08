@@ -8,9 +8,16 @@ const nextConfig = {
         net: false,
         tls: false,
         dns: false,
+        child_process: false,
+        'pg-native': false,
+        'pg-cloudflare': false,
+        'pg-connection-string': false,
       };
     }
     return config;
+  },
+  experimental: {
+    serverComponentsExternalPackages: ['pg', 'pg-native', 'pg-cloudflare'],
   },
 };
 

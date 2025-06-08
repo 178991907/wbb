@@ -128,4 +128,37 @@ export class DatabaseConnection {
       client.release();
     }
   }
+}
+
+let pool: Pool | null = null;
+
+export function getConnectionPool(): Pool {
+  if (!pool) {
+    const connectionString = process.env.NEXT_PUBLIC_DATABASE_URL;
+    if (!connectionString) {
+      throw new Error('Database connection string is not defined');
+    }
+
+    pool = new Pool({
+      connectionString,
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    });
+
+    // 添加错误处理
+    pool.on('error', (err) => {
+      console.error('Unexpected error on idle client', err);
+      process.exit(-1);
+    });
+  }
+
+  return pool;
+}
+
+export async function closeConnectionPool(): Promise<void> {
+  if (pool) {
+    await pool.end();
+    pool = null;
+  }
 } 
