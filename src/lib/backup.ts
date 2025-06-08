@@ -1,5 +1,4 @@
-import { Pool } from 'pg';
-import { getConnectionPool } from './connection';
+import { db } from './connection';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -8,11 +7,9 @@ interface TableRow {
 }
 
 export class DatabaseBackup {
-  private pool: Pool;
   private backupDir: string;
 
   constructor() {
-    this.pool = getConnectionPool();
     this.backupDir = path.join(process.cwd(), 'backups');
   }
 
@@ -26,8 +23,8 @@ export class DatabaseBackup {
       const backupData: Record<string, TableRow[]> = {};
 
       for (const table of tables) {
-        const result = await this.pool.query(`SELECT * FROM ${table}`);
-        backupData[table] = result.rows;
+        const result = await db.executeQuery<TableRow[]>(`SELECT * FROM ${table}`);
+        backupData[table] = result;
       }
 
       // 生成备份文件名
@@ -50,10 +47,7 @@ export class DatabaseBackup {
       const backupData = JSON.parse(await fs.readFile(backupFile, 'utf-8')) as Record<string, TableRow[]>;
 
       // 开始事务
-      const client = await this.pool.connect();
-      try {
-        await client.query('BEGIN');
-
+      await db.executeTransaction(async (client) => {
         // 恢复每个表的数据
         for (const [table, rows] of Object.entries(backupData)) {
           // 清空表
@@ -73,14 +67,7 @@ export class DatabaseBackup {
             );
           }
         }
-
-        await client.query('COMMIT');
-      } catch (error) {
-        await client.query('ROLLBACK');
-        throw error;
-      } finally {
-        client.release();
-      }
+      });
     } catch (error) {
       console.error('Restore failed:', error);
       throw error;

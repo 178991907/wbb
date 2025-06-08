@@ -3,6 +3,7 @@ import { Client, type ClientBase, Pool } from 'pg'; // Corrected import for Clie
 import { withCache, invalidateCache, CACHE_KEYS } from './cache';
 import { runMigrations } from '../migrations';
 import { DatabaseConnection } from './connection';
+import { db } from './connection';
 
 dotenv.config(); // Load environment variables at the top
 
@@ -41,13 +42,11 @@ class LocalStorage implements Storage {
   }
 }
 
-// Cloud Database Storage implementation (currently PostgreSQL specific)
+// Cloud Database Storage implementation
 class CloudDatabaseStorage implements Storage {
-  private db: DatabaseConnection;
   private isInitialized: boolean = false;
 
   constructor() {
-    this.db = DatabaseConnection.getInstance();
     this.initialize();
   }
 
@@ -55,7 +54,7 @@ class CloudDatabaseStorage implements Storage {
     if (this.isInitialized) return;
 
     try {
-      await this.db.initialize();
+      await db.initialize();
       this.isInitialized = true;
       console.log('Database storage initialized successfully');
     } catch (e) {
@@ -67,9 +66,8 @@ class CloudDatabaseStorage implements Storage {
   async getData(key: string): Promise<any> {
     await this.initialize();
 
-    // 使用缓存包装数据库查询
     return withCache(key, async () => {
-      const result = await this.db.executeQuery<any>(
+      const result = await db.executeQuery<any>(
         'SELECT value FROM storage WHERE key = $1',
         [key]
       );
@@ -80,27 +78,25 @@ class CloudDatabaseStorage implements Storage {
   async saveData(key: string, data: any): Promise<void> {
     await this.initialize();
 
-    await this.db.executeQuery(
+    await db.executeQuery(
       'INSERT INTO storage (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP',
       [key, data]
     );
-    // 保存后清除相关缓存
     invalidateCache(key);
   }
 
   async deleteData(key: string): Promise<void> {
     await this.initialize();
 
-    await this.db.executeQuery(
+    await db.executeQuery(
       'DELETE FROM storage WHERE key = $1',
       [key]
     );
-    // 删除后清除相关缓存
     invalidateCache(key);
   }
 
   async disconnect(): Promise<void> {
-    await this.db.close();
+    await db.close();
   }
 }
 

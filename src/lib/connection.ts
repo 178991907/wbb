@@ -12,9 +12,9 @@ export class DatabaseConnection {
   private constructor() {
     const config: PoolConfig = {
       connectionString: process.env.NEXT_PUBLIC_DATABASE_URL,
-      ssl: {
-        rejectUnauthorized: false,
-      },
+      ssl: process.env.NODE_ENV === 'production' ? {
+        rejectUnauthorized: false
+      } : undefined,
       max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 2000,
@@ -22,7 +22,7 @@ export class DatabaseConnection {
 
     this.pool = new Pool(config);
     this.monitor = new DatabaseMonitor(this.pool);
-    this.backup = new DatabaseBackup(this.pool);
+    this.backup = new DatabaseBackup();
 
     // 监听连接错误
     this.pool.on('error', (err) => {
@@ -74,9 +74,9 @@ export class DatabaseConnection {
       await this.pool.end();
       this.pool = new Pool({
         connectionString: process.env.NEXT_PUBLIC_DATABASE_URL,
-        ssl: {
-          rejectUnauthorized: false,
-        },
+        ssl: process.env.NODE_ENV === 'production' ? {
+          rejectUnauthorized: false
+        } : undefined,
         max: 20,
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 2000,
@@ -84,7 +84,7 @@ export class DatabaseConnection {
 
       // 重新初始化监控
       this.monitor = new DatabaseMonitor(this.pool);
-      this.backup = new DatabaseBackup(this.pool);
+      this.backup = new DatabaseBackup();
 
       console.log('Database connection reestablished');
     } catch (reconnectError) {
@@ -129,6 +129,9 @@ export class DatabaseConnection {
     }
   }
 }
+
+// 导出单例实例
+export const db = DatabaseConnection.getInstance();
 
 let pool: Pool | null = null;
 
