@@ -15,22 +15,9 @@ import {
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getStorage } from '@/lib/storage';
-
-export interface Category {
-  id: string;
-  name: string;
-  slug: string;
-  icon?: string;
-  createdDate: string;
-}
+import { Category, initialMockCategories } from '@/config/categories';
 
 const LOCAL_STORAGE_CATEGORIES_KEY = 'linkHubCategories';
-
-// Initial mock data if database is empty
-export const initialMockCategories: Category[] = [
-  { id: '1', name: '常用工具', slug: 'common-tools', createdDate: 'May 16, 2024', icon: 'tool' },
-  { id: '2', name: '儿童游戏', slug: 'kids-games', createdDate: 'May 16, 2024', icon: 'gamepad-2' },
-];
 
 export default function AdminCategoriesPage() {
   const router = useRouter();
